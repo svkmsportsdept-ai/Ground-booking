@@ -1,2 +1,567 @@
-# Ground-booking
-ground booking and management
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SVKM Sports Grounds Booking Manager (Full)</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;background:#f4f8ff;margin:0}
+header{background:#0A3D62;color:#fff;padding:14px;text-align:center}
+.box{width:calc(100% - 24px);margin:12px auto;max-width:none;background:#fff;padding:14px;border-radius:12px}
+h2{color:#0A3D62;margin:10px 0}
+label{font-weight:700}
+input,select{width:100%;padding:9px;margin:6px 0;border:1px solid #cbd5e1;border-radius:10px}
+button{background:#0A3D62;color:#fff;border:none;padding:10px 14px;border-radius:12px;cursor:pointer}
+button.secondary{background:#e6f0ff;color:#0A3D62;border:1px solid #b6d0ff}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{border:1px solid #d2d9e3;padding:8px;font-size:13px;vertical-align:top}
+th{background:#e6f0ff}
+.hidden{display:none}
+.note{font-size:12px;color:#555}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:720px){.row{grid-template-columns:1fr}}
+.topbar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:8px}
+.pill{background:#e6f0ff;border:1px solid #b6d0ff;border-radius:999px;padding:6px 10px;font-size:12px;color:#0A3D62}
+
+/* Calendar */
+.cal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 10px}
+.cal-title{font-size:18px;font-weight:800;color:#0A3D62;text-align:center;flex:1}
+.day-header{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));text-align:center;font-weight:800;color:#0A3D62;margin-bottom:4px;font-size:12px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;width:100%}
+.cal-day{border:1px solid #d8e2f2;min-height:76px;padding:6px;font-size:12px;border-radius:14px;background:#fff}
+.cal-day.blank{background:#f7fbff;border-style:dashed}
+.cal-day.today{outline:2px solid #0A3D62}
+.badge{display:block;padding:2px 8px;border-radius:999px;font-size:10px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid rgba(0,0,0,.08)}
+.badge.MASheth{background:#e8f1ff}
+.badge.SVKM{background:#e9fff1}
+.badge.stApproved{border-left:5px solid #1e7e34}
+.badge.stPending{border-left:5px solid #b8860b}
+.badge.stDeclined{border-left:5px solid #b02a37}
+.badge.fullblock{font-weight:800}
+
+.status-Approved{background:#d4edda}
+.status-Pending{background:#fff3cd}
+.status-Declined{background:#f8d7da}
+
+/* Reports */
+.report-box{border:1px solid #d2d9e3;border-radius:14px;padding:12px;background:#fff;margin-top:10px}
+.report-title{font-weight:900;color:#0A3D62;font-size:14px}
+.report-line{height:2px;background:#0A3D62;margin:8px 0;border-radius:99px}
+
+/* Print */
+@media print{
+  body{background:#fff}
+  .topbar, #loginBox, .navBtns, .note, button, input, select {display:none !important;}
+  header{position:static}
+  .box{margin:0;width:100%;border-radius:0}
+}
+</style>
+</head>
+<body>
+<header><h1>SVKM Sports Grounds Booking Manager</h1></header>
+
+<div class="box" id="loginBox">
+  <h2>Login</h2>
+  <label>Login Type</label>
+  <select id="role">
+    <option value="admin">Admin (Full Access)</option>
+    <option value="viewer">Team Viewer (Calendar Only)</option>
+  </select>
+  <label>Name</label>
+  <input id="personName" type="text" placeholder="Enter your name"/>
+  <label>Password</label>
+  <input id="pwd" type="password" placeholder="Password"/>
+  <button onclick="login()">Login</button>
+</div>
+
+<div class="box hidden" id="appBox">
+  <div class="topbar">
+    <div class="pill" id="whoPill"></div>
+    <button class="secondary" onclick="logout()">Logout</button>
+  </div>
+
+  <h2>Monthly Calendar</h2>
+  <div class="cal-head">
+    <button class="secondary" onclick="prevMonth()">⬅</button>
+    <div class="cal-title" id="calTitle"></div>
+    <button class="secondary" onclick="nextMonth()">➡</button>
+  </div>
+  <div class="day-header">
+    <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+
+  <div id="adminArea">
+    <div class="navBtns row" style="margin-top:8px">
+      <button class="secondary" onclick="jump('pendingSection')">Pending</button>
+      <button class="secondary" onclick="jump('weeklySection')">Weekly Report</button>
+      <button class="secondary" onclick="jump('monthlySection')">Monthly Report</button>
+      <button class="secondary" onclick="jump('backupSection')">Backup</button>
+    </div>
+
+    <h2>Add Booking</h2>
+    <div class="row">
+      <div><label>Date</label><input type="date" id="date"></div>
+      <div><label>Time</label><input type="text" id="time" placeholder="6:30 AM – 7:30 AM"></div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Venue</label>
+        <select id="venue">
+          <option>MA Sheth</option>
+          <option>SVKM Sports Academy</option>
+        </select>
+      </div>
+      <div>
+        <label>Court / Ground</label>
+        <select id="court"></select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div><label>Booked By</label><input type="text" id="by" placeholder="Student / Coach / Department"></div>
+      <div>
+        <label>Status</label>
+        <select id="status"><option>Pending</option><option>Approved</option><option>Declined</option></select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div><label>Equipment Required (Notes)</label><input type="text" id="equip" placeholder="Balls, cones, bibs..."></div>
+      <div><label>Damage / Complaint</label><input type="text" id="damage" placeholder="Net torn / lights not working..."></div>
+    </div>
+
+    <div class="row">
+      <button id="saveBtn" onclick="addBooking()">Save Booking</button>
+      <button id="cancelBtn" class="secondary" onclick="cancelEdit()" style="display:none">Cancel Edit</button>
+    </div>
+
+    <h2>Recurring Booking</h2>
+    <div class="note">Creates multiple bookings at once. Conflicts are skipped automatically.</div>
+    <div class="row">
+      <div><label>From</label><input type="date" id="rFrom"></div>
+      <div><label>To</label><input type="date" id="rTo"></div>
+    </div>
+    <div class="note">
+      <label><input type="checkbox" class="daypick" value="1"> Mon</label>&nbsp;
+      <label><input type="checkbox" class="daypick" value="2"> Tue</label>&nbsp;
+      <label><input type="checkbox" class="daypick" value="3"> Wed</label>&nbsp;
+      <label><input type="checkbox" class="daypick" value="4"> Thu</label>&nbsp;
+      <label><input type="checkbox" class="daypick" value="5"> Fri</label>&nbsp;
+      <label><input type="checkbox" class="daypick" value="6"> Sat</label>&nbsp;
+      <label><input type="checkbox" class="daypick" value="0"> Sun</label>
+    </div>
+    <button onclick="createRecurring()">Create Recurring</button>
+
+    <h2 id="pendingSection">Pending Requests (Quick View)</h2>
+    <table>
+      <thead><tr><th>Date</th><th>Time</th><th>Venue</th><th>Court</th><th>Booked By</th><th>Equipment</th><th>Actions</th></tr></thead>
+      <tbody id="pendingTable"></tbody>
+    </table>
+
+    <h2>Bookings (Upcoming by default)</h2>
+    <div class="row">
+      <div>
+        <label>Filter by Venue</label>
+        <select id="venueFilter" onchange="renderTable()">
+          <option value="All">All Venues</option>
+          <option value="MA Sheth">MA Sheth</option>
+          <option value="SVKM Sports Academy">SVKM Sports Academy</option>
+        </select>
+      </div>
+      <div>
+        <label>Bookings View</label>
+        <select id="rangeFilter" onchange="renderTable()">
+          <option value="upcoming">Upcoming (Today onwards)</option>
+          <option value="all">All (Including Past)</option>
+        </select>
+      </div>
+    </div>
+
+    <table>
+      <thead><tr><th>Date</th><th>Time</th><th>Venue</th><th>Court</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="bookingTable"></tbody>
+    </table>
+
+    <h2 id="weeklySection">Weekly Summary (PDF Style)</h2>
+    <div class="row">
+      <div><label>Select any date in week</label><input type="date" id="weekDate"></div>
+      <div><label>Venue Filter</label>
+        <select id="weekVenue">
+          <option value="All">All Venues</option>
+          <option value="MA Sheth">MA Sheth</option>
+          <option value="SVKM Sports Academy">SVKM Sports Academy</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <button onclick="generateWeeklyReport()">Generate Weekly Report</button>
+      <button class="secondary" onclick="printSection('weeklyReport')">Export PDF (Print)</button>
+    </div>
+    <div id="weeklyReport"></div>
+
+    <h2 id="monthlySection">Monthly Report (PDF Style)</h2>
+    <div class="row">
+      <div><label>Select Month</label><input type="month" id="reportMonth"></div>
+      <div><label>Venue Filter for Report</label>
+        <select id="reportVenue">
+          <option value="All">All Venues</option>
+          <option value="MA Sheth">MA Sheth</option>
+          <option value="SVKM Sports Academy">SVKM Sports Academy</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <button onclick="generateMonthlyReport()">Generate Monthly Report</button>
+      <button class="secondary" onclick="printSection('monthlyReport')">Export PDF (Print)</button>
+    </div>
+    <div id="monthlyReport"></div>
+
+    <h2>WhatsApp Templates</h2>
+    <div class="row">
+      <button class="secondary" onclick="copyTemplate('confirm')">Copy: Booking Confirmed</button>
+      <button class="secondary" onclick="copyTemplate('pending')">Copy: Booking Pending</button>
+    </div>
+
+    <h2 id="backupSection">Backup (Export / Import)</h2>
+    <div class="row">
+      <button onclick="exportBackup()">Export Backup (JSON)</button>
+      <div>
+        <label>Import Backup (JSON)</label>
+        <input type="file" id="importFile" accept=".json" onchange="importBackup(event)">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ADMIN_PASSWORD="svkm2025";
+const VIEWER_PASSWORD="viewer2025";
+
+let bookings=[];
+let viewY, viewM;
+let editingIndex=-1;
+let currentRole=null;
+let currentName="";
+
+const courtsByVenue={
+ "MA Sheth":["All","Turf – Center Court","Football Turf","PP Tile Basketball Court"],
+ "SVKM Sports Academy":["All","Pickleball Court 1","Pickleball Court 2","Basketball / Tennis Court","Football Turf","Cricket Turf Pitch 1","Cricket Turf Pitch 2","Cricket Natural Pitch 1","Cricket Natural Pitch 2"]
+};
+
+function save(){localStorage.setItem("svkm_bookings",JSON.stringify(bookings));}
+function load(){const d=localStorage.getItem("svkm_bookings"); if(d) bookings=JSON.parse(d);}
+
+function saveMonth(){localStorage.setItem("svkm_view_month", JSON.stringify({y:viewY,m:viewM}));}
+function loadMonth(){
+ const d=localStorage.getItem("svkm_view_month");
+ if(d){ try{ const o=JSON.parse(d); viewY=o.y; viewM=o.m; return;}catch(e){} }
+ const now=new Date(); viewY=now.getFullYear(); viewM=now.getMonth();
+}
+function pad2(n){return String(n).padStart(2,'0');}
+function isoLocal(d){return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate());}
+function statusKey(st){return st==="Approved"?"stApproved":st==="Declined"?"stDeclined":"stPending";}
+function venueKey(v){return v==="MA Sheth"?"MASheth":"SVKM";}
+
+function login(){
+ const role=document.getElementById("role").value;
+ const name=document.getElementById("personName").value.trim();
+ const pwd=document.getElementById("pwd").value;
+ if(!name) return alert("Please enter your name");
+ if(role==="admin" && pwd!==ADMIN_PASSWORD) return alert("Wrong Admin password");
+ if(role==="viewer" && pwd!==VIEWER_PASSWORD) return alert("Wrong Viewer password");
+ currentRole=role; currentName=name;
+
+ document.getElementById("whoPill").textContent=(role==="admin"?"Admin":"Team Viewer")+" • "+name;
+ document.getElementById("loginBox").classList.add("hidden");
+ document.getElementById("appBox").classList.remove("hidden");
+ document.getElementById("adminArea").style.display=(role==="admin")?"block":"none";
+
+ loadCourts(); load(); loadMonth(); renderAll();
+}
+
+function logout(){
+ currentRole=null; currentName="";
+ document.getElementById("pwd").value="";
+ document.getElementById("loginBox").classList.remove("hidden");
+ document.getElementById("appBox").classList.add("hidden");
+}
+
+function jump(id){document.getElementById(id).scrollIntoView({behavior:'smooth'});}
+
+function loadCourts(){
+ const venue=document.getElementById("venue").value;
+ const courtEl=document.getElementById("court"); courtEl.innerHTML="";
+ courtsByVenue[venue].forEach(c=>{const o=document.createElement("option"); o.textContent=c; courtEl.appendChild(o);});
+}
+document.getElementById("venue").addEventListener("change",loadCourts);
+
+function hasConflict(date,time,venue,court,ignoreIndex=-1){
+ return bookings.some((b,idx)=>{
+   if(idx===ignoreIndex) return false;
+   if(b.date!==date||b.time!==time||b.venue!==venue) return false;
+   if(b.court==="All"||court==="All") return true;
+   return b.court===court;
+ });
+}
+
+function setEditMode(on){
+ document.getElementById("saveBtn").textContent=on?"Update Booking":"Save Booking";
+ document.getElementById("cancelBtn").style.display=on?"inline-block":"none";
+}
+
+function addBooking(){
+ if(currentRole!=="admin") return;
+ const date=document.getElementById("date").value;
+ const time=document.getElementById("time").value.trim();
+ const venue=document.getElementById("venue").value;
+ const court=document.getElementById("court").value;
+ const by=document.getElementById("by").value.trim();
+ const status=document.getElementById("status").value;
+ const equip=document.getElementById("equip").value.trim();
+ const damage=document.getElementById("damage").value.trim();
+ if(!date||!time) return alert("Enter date & time");
+
+ if(hasConflict(date,time,venue,court,editingIndex)) return alert("⚠️ Overlap detected. Slot already booked.");
+
+ if(editingIndex>=0){
+   bookings[editingIndex]={...bookings[editingIndex],date,time,venue,court,by,status,equip,damage,updatedBy:currentName};
+   editingIndex=-1; setEditMode(false);
+   save(); renderAll(); return alert("Updated ✔");
+ }
+ bookings.push({date,time,venue,court,by,status,equip,damage,createdBy:currentName,updatedBy:currentName});
+ save(); renderAll(); alert("Saved ✔");
+}
+
+function createRecurring(){
+ if(currentRole!=="admin") return;
+ const from=document.getElementById("rFrom").value;
+ const to=document.getElementById("rTo").value;
+ if(!from||!to) return alert("Select date range");
+ const days=[...document.querySelectorAll(".daypick:checked")].map(x=>parseInt(x.value));
+ if(!days.length) return alert("Select days");
+ const time=document.getElementById("time").value.trim();
+ if(!time) return alert("Enter Time first");
+ const venue=document.getElementById("venue").value;
+ const court=document.getElementById("court").value;
+ const by=document.getElementById("by").value.trim();
+ const status=document.getElementById("status").value;
+ const equip=document.getElementById("equip").value.trim();
+ const damage=document.getElementById("damage").value.trim();
+
+ let d=new Date(from), end=new Date(to), created=0, skipped=0;
+ while(d<=end){
+  if(days.includes(d.getDay())){
+   const dIso=isoLocal(d);
+   if(hasConflict(dIso,time,venue,court,-1)) skipped++;
+   else {bookings.push({date:dIso,time,venue,court,by,status,equip,damage,createdBy:currentName,updatedBy:currentName}); created++;}
+  }
+  d.setDate(d.getDate()+1);
+ }
+ save(); renderAll(); alert(created+" created ✔\n"+skipped+" skipped due to overlap ⚠️");
+}
+
+function prevMonth(){viewM--; if(viewM<0){viewM=11; viewY--;} saveMonth(); renderCalendar();}
+function nextMonth(){viewM++; if(viewM>11){viewM=0; viewY++;} saveMonth(); renderCalendar();}
+
+function renderAll(){renderCalendar(); if(currentRole==="admin"){renderPending(); renderTable();}}
+
+function renderCalendar(){
+ const calGrid=document.getElementById("calGrid");
+ const title=document.getElementById("calTitle");
+ const firstDay=(new Date(viewY,viewM,1).getDay()+6)%7;
+ const daysIn=new Date(viewY,viewM+1,0).getDate();
+ title.textContent=new Date(viewY,viewM,1).toLocaleString('default',{month:'long',year:'numeric'});
+ calGrid.innerHTML="";
+ for(let i=0;i<firstDay;i++){const b=document.createElement("div"); b.className="cal-day blank"; calGrid.appendChild(b);}
+ const todayIso=isoLocal(new Date());
+ for(let d=1; d<=daysIn; d++){
+  const cell=document.createElement("div");
+  const thisIso=isoLocal(new Date(viewY,viewM,d));
+  cell.className="cal-day"+(thisIso===todayIso?" today":"");
+  cell.innerHTML="<b>"+d+"</b>";
+  bookings.filter(b=>b.date===thisIso).forEach(b=>{
+   const bd=document.createElement("div");
+   bd.className="badge "+venueKey(b.venue)+" "+statusKey(b.status)+(b.court==="All"?" fullblock":"");
+   const vPrefix=(b.venue==="MA Sheth")?"MA":"SVKM";
+   const label=(b.court==="All")?"FULL BLOCK":b.court;
+   bd.textContent=`${vPrefix} • ${label} • ${b.time||""} • ${b.status}`;
+   cell.appendChild(bd);
+  });
+  cell.onclick=()=>{
+    if(currentRole!=="admin") return;
+    document.getElementById("date").value=thisIso;
+    window.scrollTo({top:document.getElementById("date").getBoundingClientRect().top+window.scrollY-90, behavior:'smooth'});
+  };
+  calGrid.appendChild(cell);
+ }
+ const totalCells=firstDay+daysIn;
+ const remainder=totalCells%7;
+ const postBlanks = remainder===0?0:(7-remainder);
+ for(let i=0;i<postBlanks;i++){const b=document.createElement("div"); b.className="cal-day blank"; calGrid.appendChild(b);}
+}
+
+function renderPending(){
+ const body=document.getElementById("pendingTable"); body.innerHTML="";
+ bookings.map((b,idx)=>({b,idx}))
+  .filter(x=>(x.b.status||"")==="Pending")
+  .sort((x,y)=>(x.b.date||"").localeCompare(y.b.date||"") || (x.b.time||"").localeCompare(y.b.time||""))
+  .forEach(x=>{
+    const b=x.b;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${b.date||""}</td><td>${b.time||""}</td><td>${b.venue||""}</td>
+    <td>${(b.court==="All")?"🚫 ALL":(b.court||"")}</td><td>${b.by||""}</td><td>${b.equip||""}</td>
+    <td>
+      <button onclick="setStatus(${x.idx},'Approved')">Approve</button>
+      <button onclick="setStatus(${x.idx},'Declined')" style="margin-left:6px;background:#b02a37">Decline</button>
+      <button class="secondary" onclick="shareBookingWA(${x.idx})" style="margin-left:6px">WA</button>
+    </td>`;
+    body.appendChild(tr);
+  });
+}
+function setStatus(idx,status){
+ bookings[idx]={...bookings[idx], status:status, updatedBy:currentName};
+ save(); renderAll();
+}
+function shareBookingWA(idx){
+ const b=bookings[idx];
+ const msg=`SVKM Booking: ${b.status}\nDate: ${b.date}\nTime: ${b.time}\nVenue: ${b.venue}\nCourt: ${b.court}\nBooked By: ${b.by||"-"}\nEquipment: ${b.equip||"-"}\nDamage/Complaint: ${b.damage||"-"}`;
+ window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
+}
+
+function renderTable(){
+ const table=document.getElementById("bookingTable"); table.innerHTML="";
+ const vFilter=document.getElementById("venueFilter").value;
+ const rFilter=document.getElementById("rangeFilter").value;
+ const today=isoLocal(new Date());
+ let list=bookings.slice();
+ if(vFilter!=="All") list=list.filter(b=>b.venue===vFilter);
+ if(rFilter==="upcoming") list=list.filter(b=>(b.date||"")>=today);
+ list.sort((a,b)=>(a.date||"").localeCompare(b.date||"") || (a.time||"").localeCompare(b.time||""));
+ list.forEach(b=>{
+   const idx=bookings.indexOf(b);
+   const tr=document.createElement("tr"); tr.className="status-"+(b.status||"Pending");
+   tr.innerHTML=`<td>${b.date||""}</td><td>${b.time||""}</td><td>${b.venue||""}</td>
+   <td>${(b.court==="All")?"🚫 ALL":(b.court||"")}</td><td>${b.status||""}</td>
+   <td>
+     <button class="secondary" onclick="editBooking(${idx})">Edit</button>
+     <button onclick="deleteBooking(${idx})" style="margin-left:6px;background:#b02a37">Delete</button>
+   </td>`;
+   table.appendChild(tr);
+ });
+}
+function editBooking(idx){
+ const b=bookings[idx]; editingIndex=idx;
+ document.getElementById("date").value=b.date||"";
+ document.getElementById("time").value=b.time||"";
+ document.getElementById("venue").value=b.venue||"MA Sheth"; loadCourts();
+ document.getElementById("court").value=b.court||"All";
+ document.getElementById("by").value=b.by||"";
+ document.getElementById("status").value=b.status||"Pending";
+ document.getElementById("equip").value=b.equip||"";
+ document.getElementById("damage").value=b.damage||"";
+ setEditMode(true);
+}
+function cancelEdit(){editingIndex=-1; setEditMode(false);}
+function deleteBooking(idx){
+ if(!confirm("Delete this booking?")) return;
+ bookings.splice(idx,1); save(); renderAll();
+}
+
+function copyTemplate(type){
+ let msg="";
+ if(type==="confirm") msg="✅ Booking Confirmed\nDate: ____\nTime: ____\nVenue: ____\nCourt: ____\nBooked By: ____\nThank you.";
+ else msg="⏳ Booking Request Received (Pending)\nDate: ____\nTime: ____\nVenue: ____\nCourt: ____\nWe will confirm soon.";
+ navigator.clipboard.writeText(msg).then(()=>alert("Copied ✅"));
+}
+
+function exportBackup(){
+ const payload={exportedAt:new Date().toISOString(), bookings};
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+ const a=document.createElement("a");
+ const ts=new Date();
+ a.download=`SVKM_Bookings_Backup_${ts.getFullYear()}-${pad2(ts.getMonth()+1)}-${pad2(ts.getDate())}.json`;
+ a.href=URL.createObjectURL(blob);
+ document.body.appendChild(a); a.click(); a.remove();
+}
+function importBackup(evt){
+ const file=evt.target.files && evt.target.files[0]; if(!file) return;
+ const reader=new FileReader();
+ reader.onload=()=>{
+  try{
+    const obj=JSON.parse(reader.result);
+    const incoming=obj.bookings||obj;
+    if(!Array.isArray(incoming)) throw new Error("Invalid format");
+    if(!confirm("Import will REPLACE current bookings in this browser. Continue?")) return;
+    bookings=incoming; save(); renderAll(); alert("Imported ✅");
+  }catch(e){alert("Import failed: "+e.message);}
+ };
+ reader.readAsText(file);
+}
+
+function weekBounds(dateIso){
+ const d=new Date(dateIso);
+ const day=d.getDay();
+ const monday=new Date(d); monday.setDate(d.getDate()-(day===0?6:day-1));
+ const sunday=new Date(monday); sunday.setDate(monday.getDate()+6);
+ return {start:isoLocal(monday), end:isoLocal(sunday)};
+}
+
+function generateWeeklyReport(){
+ const input=document.getElementById("weekDate").value;
+ if(!input) return alert("Select a date");
+ const venue=document.getElementById("weekVenue").value;
+ const wb=weekBounds(input);
+ let list=bookings.filter(b=>(b.date||"")>=wb.start && (b.date||"")<=wb.end);
+ if(venue!=="All") list=list.filter(b=>b.venue===venue);
+ list.sort((a,b)=>(a.date||"").localeCompare(b.date||"") || (a.time||"").localeCompare(b.time||""));
+ let venueUse={}, courtUse={}, fullBlocks=0;
+ list.forEach(b=>{
+   venueUse[b.venue]=(venueUse[b.venue]||0)+1;
+   courtUse[`${b.venue} - ${b.court}`]=(courtUse[`${b.venue} - ${b.court}`]||0)+1;
+   if(b.venue==="MA Sheth" && b.court==="All") fullBlocks++;
+ });
+ let rep=`<div class="report-box"><div class="report-title">WEEKLY REPORT</div><div class="report-line"></div>
+ <b>Week:</b> ${wb.start} to ${wb.end}<br><b>Venue:</b> ${venue}<br><br>
+ <b>Total Bookings:</b> ${list.length}<br><b>MA Sheth Full Blocks:</b> ${fullBlocks}<br><br>
+ <b>Venue Usage:</b><br>`;
+ for(const v in venueUse){rep+=`${v}: ${venueUse[v]}<br>`;}
+ rep+=`<br><b>Court Usage:</b><br>`;
+ for(const c in courtUse){rep+=`${c}: ${courtUse[c]}<br>`;}
+ rep+=`<br><div class="report-line"></div><b>Details:</b><br><br>`;
+ list.forEach(b=>{rep+=`• <b>${b.date}</b> | ${b.time} | ${b.venue} | ${(b.court==="All")?"FULL BLOCK":b.court} | ${b.status}<br>`;});
+ rep+=`<br>Prepared by: ${currentName}</div>`;
+ document.getElementById("weeklyReport").innerHTML=rep;
+}
+
+function generateMonthlyReport(){
+ const month=document.getElementById("reportMonth").value;
+ if(!month) return alert("Select month");
+ const venue=document.getElementById("reportVenue").value;
+ let list=bookings.filter(b=>(b.date||"").startsWith(month));
+ if(venue!=="All") list=list.filter(b=>b.venue===venue);
+ list.sort((a,b)=>(a.date||"").localeCompare(b.date||"") || (a.time||"").localeCompare(b.time||""));
+ let fullBlocks=0, statusCount={Approved:0,Pending:0,Declined:0};
+ list.forEach(b=>{statusCount[b.status]=(statusCount[b.status]||0)+1; if(b.venue==="MA Sheth"&&b.court==="All") fullBlocks++;});
+ let rep=`<div class="report-box"><div class="report-title">MONTHLY REPORT</div><div class="report-line"></div>
+ <b>Month:</b> ${month}<br><b>Venue:</b> ${venue}<br><br>
+ <b>Total Bookings:</b> ${list.length}<br><b>MA Sheth Full Blocks:</b> ${fullBlocks}<br><br>
+ <b>Status Summary:</b><br>
+ Approved: ${statusCount.Approved||0} | Pending: ${statusCount.Pending||0} | Declined: ${statusCount.Declined||0}<br>
+ <br><div class="report-line"></div><b>Details:</b><br><br>`;
+ list.forEach(b=>{rep+=`• <b>${b.date}</b> | ${b.time} | ${b.venue} | ${(b.court==="All")?"FULL BLOCK":b.court} | ${b.status} | By: ${b.by||"-"}<br>`;});
+ rep+=`<br>Prepared by: ${currentName}</div>`;
+ document.getElementById("monthlyReport").innerHTML=rep;
+}
+
+function printSection(id){
+ const el=document.getElementById(id);
+ if(!el || !el.innerHTML.trim()) return alert("Generate report first");
+ window.print();
+}
+
+// init
+loadCourts();
+</script>
+</body></html>
